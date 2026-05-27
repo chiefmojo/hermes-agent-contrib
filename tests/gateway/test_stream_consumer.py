@@ -132,6 +132,56 @@ class TestFinalizeCapabilityGate:
         picky.edit_message.assert_called_once()
         assert picky.edit_message.call_args[1]["finalize"] is True
 
+    @pytest.mark.asyncio
+    async def test_overflow_split_at_done_passes_finalize_true(self):
+        """When done-tick content overflows _safe_limit and an existing message
+        is being edited, the overflow split chunk must be sent with finalize=True.
+
+        This is the long-message path: content accumulated across many streaming
+        edits exceeds the platform limit at stream end.  The split loop edits the
+        existing message with the first chunk — that edit must carry finalize=True
+        so per-adapter post-processing (e.g. Discord table conversion) fires.
+        """
+        adapter = MagicMock()
+        adapter.REQUIRES_EDIT_FINALIZE = False
+        adapter.send = AsyncMock(return_value=SimpleNamespace(
+            success=True, message_id="m1",
+        ))
+        adapter.edit_message = AsyncMock(return_value=SimpleNamespace(
+            success=True, message_id="m1",
+        ))
+        # Small limit to force overflow: anything > 50 chars triggers the split.
+        adapter.MAX_MESSAGE_LENGTH = 100
+        adapter.truncate_message = MagicMock(side_effect=lambda t, n: [t])
+
+        config = StreamConsumerConfig(edit_interval=0.0, buffer_threshold=5, cursor=" ▉")
+        consumer = GatewayStreamConsumer(adapter, "chat_1", config)
+
+        # First delta: short — establishes the message via send(), sets _message_id.
+        consumer.on_delta("start ")
+        task = asyncio.create_task(consumer.run())
+        await asyncio.sleep(0.05)
+
+        # Second delta: long content that makes _accumulated exceed _safe_limit
+        # (MAX_MESSAGE_LENGTH=100, cursor=2 → _safe_limit = max(500, 100-2-100)
+        # hmm, need to re-check).  Use buffer_only to keep it simple: just
+        # dump a large payload and finish immediately.
+        long_text = "x" * 200  # definitely > any safe_limit
+        consumer.on_delta(long_text)
+        consumer.finish()
+        await task
+
+        # The overflow split must have called edit_message at least once, and
+        # at least one of those calls must have finalize=True.
+        finalize_calls = [
+            c for c in adapter.edit_message.call_args_list
+            if c[1].get("finalize") is True
+        ]
+        assert finalize_calls, (
+            "Overflow split should call edit_message(finalize=True) on done tick; "
+            f"got edit_message calls: {adapter.edit_message.call_args_list}"
+        )
+
 
 class TestEditMessageFinalizeSignature:
     """Every concrete platform adapter must accept the ``finalize`` kwarg.

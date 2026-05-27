@@ -523,7 +523,10 @@ class GatewayStreamConsumer:
                         if split_at < _safe_limit // 2:
                             split_at = _safe_limit
                         chunk = self._accumulated[:split_at]
-                        ok = await self._send_or_edit(chunk)
+                        # Pass finalize=got_done so the split chunk triggers
+                        # per-adapter final-edit processing (e.g. Discord table
+                        # conversion) when this is the done-tick overflow.
+                        ok = await self._send_or_edit(chunk, finalize=got_done)
                         if self._fallback_final_send or not ok:
                             # Edit failed (or backed off due to flood control)
                             # while attempting to split an oversized message.
