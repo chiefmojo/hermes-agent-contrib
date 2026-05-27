@@ -45,6 +45,12 @@ agent-browser/
 # Private keys
 *.ppk
 *.pem
+
+# ── Local install artifacts (symlinks / build output) ──
+.memos-node-bin
+bridge.cts
+dist/
+plugins/memory/memtensor
 privvy*
 images/
 __pycache__/
