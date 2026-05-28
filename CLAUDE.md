@@ -58,17 +58,18 @@ run_agent.py, cli.py, batch_runner.py
 
 | File | Role |
 |------|------|
-| `run_agent.py` | `AIAgent` class — core conversation loop (~15k LOC) |
+| `run_agent.py` | `AIAgent` class — thin coordinator; core logic in `agent/` submodules (~4k LOC) |
 | `model_tools.py` | Tool orchestration, `discover_builtin_tools()`, `handle_function_call()` |
 | `toolsets.py` | Toolset definitions; `_HERMES_CORE_TOOLS` is the default platform bundle |
-| `cli.py` | `HermesCLI` — interactive CLI with prompt_toolkit (~13k LOC) |
+| `cli.py` | `HermesCLI` — interactive CLI with prompt_toolkit (~15k LOC) |
 | `hermes_state.py` | `SessionDB` — SQLite session store with FTS5 full-text search |
 | `hermes_constants.py` | `get_hermes_home()` / `display_hermes_home()` — profile-aware paths |
 | `agent/prompt_builder.py` | System prompt assembly (identity, skills, context files, memory) |
 | `agent/context_compressor.py` | Auto-summarization when approaching context limits |
 | `agent/background_review.py` | Background memory/skill review prompts (`_MEMORY_REVIEW_PROMPT`, etc.) |
 | `hermes_cli/commands.py` | Central `COMMAND_REGISTRY` — all slash commands, autocomplete, menus |
-| `gateway/run.py` | `GatewayRunner` — platform lifecycle, message routing, cron delivery |
+| `gateway/run.py` | `GatewayRunner` — platform lifecycle, message routing, cron delivery (~18.7k LOC) |
+| `gateway/stream_consumer.py` | Streaming output handler — `finalize` flag controls per-adapter post-processing |
 | `plugins/platforms/discord/adapter.py` | Discord platform adapter (messaging, voice, TTS, table formatting) |
 | `cron/scheduler.py` | Cron job runner — creates `AIAgent` instances for scheduled jobs |
 
