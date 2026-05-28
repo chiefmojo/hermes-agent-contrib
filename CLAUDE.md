@@ -159,7 +159,7 @@ assert len(_PROVIDER_MODELS["gemini"]) >= 1
 
 ## companion-stable Branch Workflow
 
-Companion patches (Faye-specific customizations) live on topic branches `port/<name>` off `companion-stable` on `chiefmojo/hermes-agent`. PRs target `companion-stable`.
+Companion patches live on topic branches `port/<name>` off `companion-stable` on `chiefmojo/hermes-agent`. PRs target `companion-stable`.
 
 - `companion-stable` moves independently — verify merge base before assuming your branch's delta matches expectations
 - Source commits for porting come from `hermes-patches-faye`
