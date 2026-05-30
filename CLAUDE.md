@@ -58,7 +58,7 @@ run_agent.py, cli.py, batch_runner.py
 
 | File | Role |
 |------|------|
-| `run_agent.py` | `AIAgent` class — thin coordinator; core logic in `agent/` submodules (~4k LOC) |
+| `run_agent.py` | `AIAgent` class — thin coordinator; core logic in `agent/` submodules |
 | `model_tools.py` | Tool orchestration, `discover_builtin_tools()`, `handle_function_call()` |
 | `toolsets.py` | Toolset definitions; `_HERMES_CORE_TOOLS` is the default platform bundle |
 | `cli.py` | `HermesCLI` — interactive CLI with prompt_toolkit (~15k LOC) |
@@ -165,7 +165,7 @@ Companion patches live on topic branches `port/<name>` off `companion-stable` on
 - Source commits for porting come from `hermes-patches-faye`
 - After cherry-picking with conflict resolution (`git add` + commit), the working tree may retain conflict markers — `git checkout HEAD -- <file>` cleans them without affecting the commit
 
-### v0.14.0 Structural Changes (relevant for porting patches)
+### v0.14.0 Structural Changes (historical — relevant when porting patches)
 
 - Discord adapter: `plugins/platforms/discord/adapter.py` (was `gateway/platforms/discord.py`)
 - Review prompts (`_MEMORY_REVIEW_PROMPT`, etc.): `agent/background_review.py` (was `run_agent.py`)
