@@ -2708,7 +2708,18 @@ class DiscordAdapter(BasePlatformAdapter):
             if not result.get("success"):
                 return
             transcript = result.get("transcript", "").strip()
-            if not transcript or is_whisper_hallucination(transcript):
+            duration = result.get("duration", 0.0)
+            if not transcript:
+                logger.info(
+                    "Voice input from user %d: empty transcript (%.1fs audio), skipping",
+                    user_id, duration,
+                )
+                return
+            if is_whisper_hallucination(transcript):
+                logger.info(
+                    "Voice input from user %d: filtered as hallucination (%.1fs audio): %r",
+                    user_id, duration, transcript[:60],
+                )
                 return
 
             logger.info("Voice input from user %d: %s", user_id, transcript[:100])
