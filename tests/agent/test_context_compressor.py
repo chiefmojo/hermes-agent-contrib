@@ -198,7 +198,11 @@ class TestNonStringContent:
         kwargs = mock_call.call_args.kwargs
         assert "temperature" not in kwargs
 
-    def test_summary_prompt_avoids_filter_sensitive_handoff_framing(self):
+    def test_summary_prompt_preserves_companion_voice_instructions(self):
+        # Companion patch (62c0ccb26) intentionally uses stronger framing to
+        # preserve personality/voice across context compaction.  This test
+        # verifies the companion preamble is present and that the template
+        # includes the Relationship & Voice section.
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "ok"
@@ -215,12 +219,12 @@ class TestNonStringContent:
             c._generate_summary(messages)
 
         prompt = mock_call.call_args.kwargs["messages"][0]["content"]
-        assert "Your output will be injected" not in prompt
-        assert "Do NOT respond" not in prompt
-        assert "DIFFERENT assistant" not in prompt
-        assert "different assistant" not in prompt
-        assert "Treat the conversation turns below as source material" in prompt
-        assert "structured checkpoint summary" in prompt
+        # Companion preamble — preserve personality / voice
+        assert "communication style" in prompt
+        assert "Relationship" in prompt
+        # Core invariants: no credentials in output, no preamble/greeting
+        assert "REDACTED" in prompt or "credentials" in prompt.lower()
+        assert "preamble" in prompt.lower() or "prefix" in prompt.lower()
 
     def test_summary_call_passes_live_main_runtime(self):
         mock_response = MagicMock()

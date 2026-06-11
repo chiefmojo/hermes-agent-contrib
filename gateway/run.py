@@ -16770,6 +16770,7 @@ class GatewayRunner:
                 user_id_alt=getattr(source, "user_id_alt", None),
             )
             agent = None
+            cached = None
             _cache_lock = getattr(self, "_agent_cache_lock", None)
             _cache = getattr(self, "_agent_cache", None)
             if _cache_lock and _cache is not None:
