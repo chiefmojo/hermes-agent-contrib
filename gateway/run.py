@@ -2663,6 +2663,22 @@ class GatewayRunner:
         else:
             self._session_reasoning_overrides[session_key] = dict(reasoning_config)
 
+    def _clear_auto_reset_session_state(self, session_key: str) -> None:
+        """Drop session-scoped state that must not cross auto-reset boundaries."""
+        if not session_key:
+            return
+        overrides = getattr(self, "_session_model_overrides", None)
+        if overrides is not None:
+            overrides.pop(session_key, None)
+        self._set_session_reasoning_override(session_key, None)
+        pending_notes = getattr(self, "_pending_model_notes", None)
+        if pending_notes is not None:
+            pending_notes.pop(session_key, None)
+        # Auto-reset keeps the same session_key but switches to a fresh
+        # session_id. Cached AIAgent instances must not cross that boundary
+        # because they freeze session_id and memory-provider state.
+        self._evict_cached_agent(session_key)
+
     @staticmethod
     def _load_service_tier() -> str | None:
         """Load Priority Processing setting from config.yaml.
@@ -7880,11 +7896,9 @@ class GatewayRunner:
             # Treat auto-reset as a full conversation boundary — drop every
             # session-scoped transient state so the fresh session does not
             # inherit the previous conversation's model/reasoning overrides
-            # or a queued "/model switched" note.
-            self._session_model_overrides.pop(session_key, None)
-            self._set_session_reasoning_override(session_key, None)
-            if hasattr(self, "_pending_model_notes"):
-                self._pending_model_notes.pop(session_key, None)
+            # or a queued "/model switched" note. The cached AIAgent is also
+            # evicted because session_id is not part of the cache signature.
+            self._clear_auto_reset_session_state(session_key)
         
         # Emit session:start for new or auto-reset sessions
         _is_new_session = (
@@ -16267,6 +16281,7 @@ class GatewayRunner:
                 cache_keys=self._extract_cache_busting_config(user_config),
             )
             agent = None
+            cached = None
             _cache_lock = getattr(self, "_agent_cache_lock", None)
             _cache = getattr(self, "_agent_cache", None)
             if _cache_lock and _cache is not None:
