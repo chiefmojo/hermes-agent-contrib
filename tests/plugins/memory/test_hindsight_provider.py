@@ -1811,6 +1811,11 @@ class TestShutdown:
 
 
 class TestOnSessionEnd:
+    def _clear_capability_cache(self):
+        from plugins.memory.hindsight import _append_capability_cache, _append_capability_lock
+        with _append_capability_lock:
+            _append_capability_cache.clear()
+
     def test_flushes_buffered_turns(self, provider_with_config):
         """Turns accumulated since last batch boundary are flushed at session end."""
         p = provider_with_config(retain_every_n_turns=5)
@@ -1859,6 +1864,71 @@ class TestOnSessionEnd:
 
         # No buffered turns remain — nothing to flush
         p._client.aretain_batch.assert_not_called()
+
+    def test_does_not_join_legacy_sync_thread_alias(self, provider_with_config):
+        """_sync_thread aliases the long-lived writer; session-end must not join it."""
+        join = MagicMock(side_effect=AssertionError("must not join writer thread"))
+        p = provider_with_config(retain_every_n_turns=5)
+        p.sync_turn("hello", "hi")
+        p._sync_thread = SimpleNamespace(is_alive=lambda: True, join=join)
+
+        p.on_session_end([])
+
+        join.assert_not_called()
+
+    def test_legacy_flush_resends_full_session_payload(self, provider_with_config, monkeypatch):
+        """Legacy overwrite APIs need the full session, not only the modulo tail."""
+        self._clear_capability_cache()
+        monkeypatch.setattr(
+            "plugins.memory.hindsight._fetch_hindsight_api_version",
+            lambda *a, **kw: None,
+        )
+        p = provider_with_config(retain_every_n_turns=2, retain_async=False)
+        old_doc = p._document_id
+        p.sync_turn("turn1-user", "turn1-asst")
+        p.sync_turn("turn2-user", "turn2-asst")
+        p._retain_queue.join()
+        p._client.aretain_batch.reset_mock()
+
+        p.sync_turn("turn3-user", "turn3-asst")
+        p.on_session_end([])
+
+        kw = p._client.aretain_batch.call_args.kwargs
+        assert kw["document_id"] == old_doc
+        item = kw["items"][0]
+        assert "update_mode" not in item
+        assert item["metadata"]["message_count"] == "6"
+        content = item["content"]
+        assert "turn1-user" in content
+        assert "turn2-user" in content
+        assert "turn3-user" in content
+
+    def test_append_flush_uses_stable_doc_and_only_delta(self, provider_with_config, monkeypatch):
+        """Append-capable APIs flush only unretained turns to the stable session doc."""
+        self._clear_capability_cache()
+        monkeypatch.setattr(
+            "plugins.memory.hindsight._fetch_hindsight_api_version",
+            lambda *a, **kw: "0.5.6",
+        )
+        p = provider_with_config(retain_every_n_turns=2, retain_async=False)
+        p.sync_turn("turn1-user", "turn1-asst")
+        p.sync_turn("turn2-user", "turn2-asst")
+        p._retain_queue.join()
+        p._client.aretain_batch.reset_mock()
+
+        p.sync_turn("turn3-user", "turn3-asst")
+        p.on_session_end([])
+
+        kw = p._client.aretain_batch.call_args.kwargs
+        assert kw["document_id"] == "test-session"
+        assert kw["retain_async"] is False
+        item = kw["items"][0]
+        assert item["update_mode"] == "append"
+        assert item["metadata"]["message_count"] == "2"
+        content = item["content"]
+        assert "turn1-user" not in content
+        assert "turn2-user" not in content
+        assert "turn3-user" in content
 
     def test_no_turns_noop(self, provider):
         """No turns accumulated — on_session_end is a clean no-op."""
