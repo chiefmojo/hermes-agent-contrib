@@ -2157,7 +2157,7 @@ class DiscordAdapter(BasePlatformAdapter):
                     duration_secs = max(1.0, len(file_data) / 2000.0)
 
                 # Generate a realistic-looking waveform from the file data.
-                # Discord renders voice messages based on this — flat waveforms 
+                # Discord renders voice messages based on this — flat waveforms
                 # (all 128s) are treated as silence and the voice UI won't show.
                 _waveform = bytearray(256)
                 _step = max(1, len(file_data) // 512)  # sample every N bytes
