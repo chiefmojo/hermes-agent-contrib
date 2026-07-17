@@ -2015,6 +2015,7 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
             )
 
         _cron_toolsets = _resolve_cron_enabled_toolsets(job, _cfg)
+        from agent.memory_manager import memory_provider_tools_enabled
 
         agent = AIAgent(
             model=model,
@@ -2043,7 +2044,7 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
             # Without a workdir, keep cwd context discovery disabled.
             skip_context_files=not bool(_job_workdir),
             load_soul_identity=True,
-            skip_memory="memory_search" not in (_cron_toolsets or []),  # Only skip memory unless explicit
+            skip_memory=not memory_provider_tools_enabled(_cron_toolsets),
             platform="cron",
             session_id=_cron_session_id,
             session_db=_session_db,
