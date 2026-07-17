@@ -205,8 +205,9 @@ class TestSendTableConversion:
     _TABLE = "| Name | Value |\n|------|-------|\n| foo  | bar   |"
 
     @pytest.mark.asyncio
-    async def test_send_converts_table_to_code_block(self):
+    async def test_send_uses_compact_table_fallback_within_budget(self):
         adapter = DiscordAdapter(PlatformConfig(enabled=True, token="***"))
+        adapter.MAX_MESSAGE_LENGTH = 50
         sent = []
 
         async def fake_send(*, content, reference=None):
@@ -226,11 +227,14 @@ class TestSendTableConversion:
 
         assert result.success is True
         assert len(sent) == 1
-        assert sent[0].startswith("```\n")
+        assert not sent[0].startswith("```")
+        assert "Name: foo" in sent[0]
+        assert "Value: bar" in sent[0]
 
     @pytest.mark.asyncio
-    async def test_send_to_forum_converts_table_to_code_block(self):
+    async def test_forum_send_uses_compact_table_fallback_within_budget(self):
         adapter = DiscordAdapter(PlatformConfig(enabled=True, token="***"))
+        adapter.MAX_MESSAGE_LENGTH = 50
 
         thread_ch = SimpleNamespace(id=777, send=AsyncMock())
         thread = SimpleNamespace(id=777, message=SimpleNamespace(id=800), thread=thread_ch)
@@ -250,14 +254,16 @@ class TestSendTableConversion:
 
         assert result.success is True
         assert len(create_args) == 1
-        assert create_args[0]["content"].startswith("```\n")
+        assert not create_args[0]["content"].startswith("```")
+        assert "Name: foo" in create_args[0]["content"]
+        assert "Value: bar" in create_args[0]["content"]
 
 
 class TestEditMessageTableConversion:
     _TABLE = "| Name | Value |\n|------|-------|\n| foo  | bar   |"
 
     @pytest.mark.asyncio
-    async def test_intermediate_edit_skips_table_conversion(self):
+    async def test_intermediate_edit_converts_table_to_code_block(self):
         adapter = DiscordAdapter(PlatformConfig(enabled=True, token="***"))
         edited = []
         msg = SimpleNamespace(
@@ -272,8 +278,7 @@ class TestEditMessageTableConversion:
         await adapter.edit_message("123", "456", self._TABLE, finalize=False)
 
         assert len(edited) == 1
-        assert not edited[0].startswith("```")
-        assert "|" in edited[0]
+        assert edited[0].startswith("```\n")
 
     @pytest.mark.asyncio
     async def test_finalize_edit_converts_table_to_code_block(self):
