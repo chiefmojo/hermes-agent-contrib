@@ -143,17 +143,11 @@ def close_request(request, target=None):
 
 
 def relay(source, destination):
-    """Relay data between sockets, handling partial reads and SSL errors."""
-    try:
-        while True:
-            chunk = source.recv(MAX_REQUEST_BYTES)
-            if not chunk:
-                return
-            destination.sendall(chunk)
-    except (ssl.SSLError, ConnectionError, BrokenPipeError) as e:
-        # Upstream connection failed or closed; exit gracefully.
-        # This handles SSL EOF errors, connection resets, and client disconnects.
-        pass
+    while True:
+        chunk = source.recv(MAX_REQUEST_BYTES)
+        if not chunk:
+            return
+        destination.sendall(chunk)
 
 
 def forward_https(conn, host, port, request):
